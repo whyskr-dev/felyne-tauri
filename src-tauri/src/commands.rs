@@ -293,7 +293,11 @@ mod tests {
 
     #[test]
     fn capabilities_grant_every_registered_command() {
-        for file in ["capabilities/local.json", "capabilities/remote.json"] {
+        for file in [
+            "capabilities/local.json",
+            "capabilities/remote.json",
+            "capabilities/dev.json",
+        ] {
             assert_eq!(
                 capability_allow_entries(file),
                 sorted_shell_commands(),

@@ -70,15 +70,17 @@ Prerequisites: Rust (stable), Node 20+, and the Tauri system deps for your OS
 ([docs](https://tauri.app/start/prerequisites/)).
 
 ```bash
-# point at the local web app in dev (optional)
-FELYNE_APP_URL=http://localhost:5173  # not yet wired; see below
-
-cargo tauri dev
+# point the shell at a local/staging build of the PWA (debug builds only)
+FELYNE_APP_URL=http://localhost:5173 cargo tauri dev
 ```
 
-> Dev URL: the navigation lock allows `localhost` in debug builds so you can
-> point `REMOTE_ORIGIN` at your local Vite server while developing the web app.
-> That wiring is left as a follow-up.
+> `FELYNE_APP_URL` is honored in **debug builds only** — the splash navigates to
+> it and the navigation lock allow-lists its origin. Release builds ignore the
+> env var and always load `https://pwa.felyne.app`, so a tampered environment
+> can't redirect the shipped app. The matching shell-bridge grants for the dev
+> server live in `capabilities/dev.json` (localhost / 127.0.0.1); that
+> capability is inert in release because the navigation lock denies `localhost`
+> except in debug builds.
 
 Rebuild icons after changing `src-tauri/icons/icon-source.png`:
 
@@ -88,20 +90,65 @@ npx @tauri-apps/cli icon src-tauri/icons/icon-source.png -o src-tauri/icons
 
 ## Building / releasing
 
+Run the Tauri CLI from `src-tauri/` (it resolves bundle paths against the
+current directory):
+
 ```bash
-cargo tauri build          # debug bundle for the current OS
-cargo tauri build --release --target aarch64-apple-darwin   # example target
+cd src-tauri
+cargo tauri build                                   # bundle for this OS
+npx @tauri-apps/cli build --target aarch64-apple-darwin   # other targets
 ```
 
-CI (`build-desktop.yml`) builds macOS (arm64 + x86_64), Windows, and Linux on
-every push to `main`. Tagging `v*` triggers `release.yml`, which produces
-signed bundles, attaches them to a GitHub release, and (once the updater
-plugin is wired in) publishes signed updater artifacts.
+### CI / releasing
 
-Required secrets for the release workflow: `TAURI_SIGNING_PRIVATE_KEY`,
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, and for macOS notarization
-`APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`,
-`APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`.
+**GitLab is the development host; GitHub does the free building.**
+
+- **GitLab** (`.gitlab-ci.yml`) — runs `cargo test` + clippy on pushes, merge
+  requests, and tags. Kept minimal so the free-tier minutes stay available for
+  development.
+- **GitHub Actions** (`.github/workflows/`) — the repo is mirrored to a public
+  GitHub repo, where Actions runs all three OSes for free (public repos get
+  unlimited standard-runner minutes):
+  - `ci.yml` — test + clippy + bundle build on macOS, Ubuntu, Windows for every
+    push to `main` and every PR.
+  - `release.yml` — on a `v*` tag: tests, then builds macOS (arm64 + x86_64),
+    Ubuntu (`.deb` + `.AppImage`), and Windows (`.msi`/`.exe`), and publishes a
+    **draft** release with the signed updater artifacts attached.
+
+### Making a release
+
+1. Push to GitHub (GitLab remains the main remote):
+   ```bash
+   git push gitlab main
+   git push github main
+   git tag -a v0.1.0 -m "felyne v0.1.0"
+   git push github v0.1.0
+   ```
+2. `release.yml` builds and uploads assets to a **draft** release.
+3. Open the draft release, sanity-check the `.dmg`, `.msi`/`.exe`, and
+   `.deb`/`.AppImage` assets, then publish.
+
+### Signing & secrets
+
+The updater signing key pair lives at `~/.config/felyne-tauri/felyne-updater.key`
+(+ `.pub`). The **public** key is committed in `tauri.conf.json`
+(`plugins.updater.pubkey`); the **private** key stays out of the repo and is
+only needed in CI as a secret. Back it up — if it's lost, published update
+signatures can't be produced again.
+
+Set these as **GitHub Actions secrets** (Settings → Secrets and variables →
+Actions) on the GitHub mirror repo:
+
+| Secret | Needed for |
+| --- | --- |
+| `TAURI_SIGNING_PRIVATE_KEY` | Signing updater artifacts (content of the `.key` file) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Updater key password (empty here) |
+| `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` | Codesigning the macOS app |
+| `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | macOS notarization |
+
+Windows and Linux artifacts are unsigned (acceptable for v1). macOS builds are
+signed + notarized only when the Apple secrets above are set; without them the
+builds still succeed unsigned.
 
 ## Follow-ups
 
@@ -109,5 +156,5 @@ Required secrets for the release workflow: `TAURI_SIGNING_PRIVATE_KEY`,
   hidden.
 - Notification tap → conversation routing via a platform-specific native
   backend (the official plugin's desktop backend has no click callback).
-- Self-update via `tauri-plugin-updater` (config is stubbed to inactive).
-- `FELYNE_APP_URL` override for pointing the shell at a local web app.
+- Self-update via `tauri-plugin-updater` (config is stubbed to inactive; the
+  signing key is already generated).

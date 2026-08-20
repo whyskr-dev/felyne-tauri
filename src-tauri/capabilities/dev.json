@@ -1,0 +1,21 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "dev",
+  "description": "Debug-only: lets a local PWA dev server (via FELYNE_APP_URL) use the shell bridge. Inert in release because the navigation lock denies localhost origins except in debug builds.",
+  "windows": ["main"],
+  "remote": {
+    "urls": [
+      "http://localhost:*",
+      "http://127.0.0.1:*"
+    ]
+  },
+  "permissions": [
+    "core:default",
+    "allow-shell-platform",
+    "allow-shell-version",
+    "allow-shell-notify",
+    "allow-shell-open-external",
+    "allow-shell-notifications-permission",
+    "allow-shell-request-notification-permission"
+  ]
+}

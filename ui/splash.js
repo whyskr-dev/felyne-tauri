@@ -1,7 +1,8 @@
 // Local splash: probe the remote app, then hand off. On failure show an
 // explicit offline state with a Retry button instead of a stuck blank window.
 
-var PWA_URL = 'https://pwa.felyne.app';
+var SHELL = window.__FELYNE_SHELL__ || {};
+var PWA_URL = SHELL.appUrl || 'https://pwa.felyne.app';
 var PROBE_TIMEOUT_MS = 8000;
 
 var statusEl = document.getElementById('status');

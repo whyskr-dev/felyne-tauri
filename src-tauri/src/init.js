@@ -7,6 +7,7 @@
 (function () {
   var VERSION = '__SHELL_VERSION__';
   var PLATFORM = '__SHELL_PLATFORM__';
+  var APP_URL = '__FELYNE_APP_URL__';
 
   var internals = window.__TAURI_INTERNALS__;
   var invoke = internals
@@ -21,6 +22,7 @@
     isShell: true,
     version: VERSION,
     platform: PLATFORM,
+    appUrl: APP_URL,
     notify: function (title, body, data) {
       return invoke('shell_notify', { title: title, body: body, data: data || {} });
     },
