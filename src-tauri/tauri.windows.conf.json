@@ -1,0 +1,16 @@
+{
+  "bundle": {
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    }
+  },
+  "plugins": {
+    "notification": {
+      "windows": {
+        "aumid": "app.felyne.desktop"
+      }
+    }
+  }
+}

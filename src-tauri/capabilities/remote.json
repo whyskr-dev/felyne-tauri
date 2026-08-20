@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "remote",
+  "description": "Narrow bridge surface granted to the remote pwa.felyne.app origin. This is what enables the Tauri IPC on the remote page and limits what it can call.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["https://pwa.felyne.app"]
+  },
+  "permissions": [
+    "core:default"
+  ]
+}

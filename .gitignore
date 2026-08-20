@@ -1,0 +1,28 @@
+# Rust
+target/
+**/*.rs.bk
+
+# Node
+/node_modules
+
+# Tauri generated
+src-tauri/gen/
+src-tauri/icons/android/
+src-tauri/icons/ios/
+
+# desloppify local state
+.desloppify/
+
+# macOS
+.DS_Store
+
+# Secrets
+*.p8
+*.p12
+*.pem
+*.jks
+*.keystore
+
+# Local env
+.env
+.env.*

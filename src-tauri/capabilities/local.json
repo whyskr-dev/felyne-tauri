@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "local",
+  "description": "Permissions for the bundled splash page (local content).",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

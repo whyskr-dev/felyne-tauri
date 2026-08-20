@@ -1,0 +1,76 @@
+:root {
+  --bg: #181818;
+  --fg: #e5e5e5;
+  --muted: #8a8a8a;
+  --accent: #3ecf8e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.splash {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+.mark {
+  border-radius: 22px;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 0 24px;
+}
+
+.retry {
+  padding: 8px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.retry:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.hidden {
+  display: none;
+}
