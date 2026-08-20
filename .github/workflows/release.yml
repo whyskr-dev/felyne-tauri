@@ -87,6 +87,7 @@ jobs:
       GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
       TAG: ${{ github.ref_name }}
     steps:
+      - uses: actions/checkout@v4
       - name: Fetch GitHub release assets
         id: assets
         if: ${{ env.GITLAB_TOKEN != '' }}
@@ -95,6 +96,10 @@ jobs:
             --jq '[.assets[] | {name: .name, url: .browser_download_url}]')
           echo "links=$ASSETS" >> "$GITHUB_OUTPUT"
           echo "$ASSETS" | jq -r '.[].name'
+      - name: Push tag to GitLab
+        if: ${{ env.GITLAB_TOKEN != '' }}
+        run: |
+          git push "https://oauth2:${GITLAB_TOKEN}@gitlab.com/whyskr-club/felyne-tauri.git" "$TAG" 2>&1 | tail -1
       - name: Create or update GitLab release
         if: ${{ env.GITLAB_TOKEN != '' }}
         run: |
@@ -105,17 +110,24 @@ jobs:
             '{name: $tag, tag_name: $tag,
               description: ("Built on GitHub Actions — see " + $url),
               assets: {links: $links}}')
-          if curl -fsS -X POST \
+          RESP=$(curl -sS -X POST \
               -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
               -H "Content-Type: application/json" \
               -d "$BODY" \
-              "https://gitlab.com/api/v4/projects/whyskr-club%2Ffelyne-tauri/releases" >/dev/null 2>&1; then
+              "https://gitlab.com/api/v4/projects/whyskr-club%2Ffelyne-tauri/releases" 2>&1) || true
+          if echo "$RESP" | jq -e '.tag_name' >/dev/null 2>&1; then
             echo "Created GitLab release $TAG"
           else
-            curl -fsS -X PUT \
+            echo "POST failed: $(echo "$RESP" | head -c 300)"
+            RESP=$(curl -sS -X PUT \
               -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
               -H "Content-Type: application/json" \
               -d "$BODY" \
-              "https://gitlab.com/api/v4/projects/whyskr-club%2Ffelyne-tauri/releases/$TAG" >/dev/null
-            echo "Updated GitLab release $TAG"
+              "https://gitlab.com/api/v4/projects/whyskr-club%2Ffelyne-tauri/releases/$TAG" 2>&1)
+            if echo "$RESP" | jq -e '.tag_name' >/dev/null 2>&1; then
+              echo "Updated GitLab release $TAG"
+            else
+              echo "PUT failed: $(echo "$RESP" | head -c 300)"
+              exit 1
+            fi
           fi
