@@ -2,7 +2,7 @@
 // explicit offline state with a Retry button instead of a stuck blank window.
 
 var SHELL = window.__FELYNE_SHELL__ || {};
-var PWA_URL = SHELL.appUrl || 'https://pwa.felyne.app';
+var PWA_URL = SHELL.appUrl || 'https://felyne.app';
 var PROBE_TIMEOUT_MS = 8000;
 
 var statusEl = document.getElementById('status');
@@ -32,7 +32,7 @@ async function launch() {
   setStatus('Connecting\u2026');
   var ok = await reachable();
   if (!ok) {
-    setStatus('Can\u2019t reach pwa.felyne.app. Check your connection.');
+    setStatus('Can\u2019t reach felyne.app. Check your connection.');
     retryEl.classList.remove('hidden');
     return;
   }

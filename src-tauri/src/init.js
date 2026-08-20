@@ -1,5 +1,5 @@
 // Injected into every page loaded in the shell (local splash + remote
-// pwa.felyne.app). Exposes a narrow bridge as window.__FELYNE_SHELL__ and
+// felyne.app). Exposes a narrow bridge as window.__FELYNE_SHELL__ and
 // routes external links to the system browser. Fail-closed: if the Tauri IPC
 // is unavailable the page simply behaves as a normal webview with no shell
 // features.

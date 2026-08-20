@@ -1,7 +1,7 @@
 [package]
 name = "felyne-tauri"
 version = "0.1.0"
-description = "Native desktop shell for pwa.felyne.app"
+description = "Native desktop shell for felyne.app"
 authors = ["Felyne Team"]
 edition = "2021"
 

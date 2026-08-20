@@ -1,6 +1,6 @@
 # felyne-tauri
 
-Native desktop shell for [pwa.felyne.app](https://pwa.felyne.app) — a thin
+Native desktop shell for [felyne.app](https://felyne.app) — a thin
 Tauri 2 wrapper that loads the Felyne PWA in a system WebView and bridges the
 few native features the web can't reach on its own. Desktop-only by design.
 
@@ -11,7 +11,7 @@ Felyne ships PWA-first with no App Store / Play Store builds on purpose (see
 A native shell changes none of that. It's a signed desktop binary distributed
 via GitHub releases that:
 
-- loads the PWA at its real origin (`https://pwa.felyne.app`), so the app is
+- loads the PWA at its real origin (`https://felyne.app`), so the app is
   always the latest deploy — no store review lag,
 - locks navigation to that origin, so a bad link can't hijack the window,
 - routes external links to the system browser,
@@ -40,7 +40,7 @@ via GitHub releases that:
 │   │   └── init.js        # injected: __FELYNE_SHELL__ bridge + link routing
 │   ├── capabilities/
 │   │   ├── local.json     # local splash permissions
-│   │   └── remote.json    # narrow surface granted to pwa.felyne.app
+│   │   └── remote.json    # narrow surface granted to felyne.app
 │   ├── icons/             # generated from src-tauri/icons/icon-source.png
 │   ├── tauri.conf.json    # base config
 │   └── tauri.*.conf.json  # per-OS overrides
@@ -51,7 +51,7 @@ via GitHub releases that:
 ## How it works
 
 1. The window loads the bundled `ui/` splash locally.
-2. The splash probes `https://pwa.felyne.app`; on success it navigates there,
+2. The splash probes `https://felyne.app`; on success it navigates there,
    on failure it shows an offline state with a Retry button.
 3. `on_navigation` allows only the PWA origin, its same-origin paths, local
    bundled assets, and the dev server (`localhost`) in debug builds.
@@ -76,7 +76,7 @@ FELYNE_APP_URL=http://localhost:5173 cargo tauri dev
 
 > `FELYNE_APP_URL` is honored in **debug builds only** — the splash navigates to
 > it and the navigation lock allow-lists its origin. Release builds ignore the
-> env var and always load `https://pwa.felyne.app`, so a tampered environment
+> env var and always load `https://felyne.app`, so a tampered environment
 > can't redirect the shipped app. The matching shell-bridge grants for the dev
 > server live in `capabilities/dev.json` (localhost / 127.0.0.1); that
 > capability is inert in release because the navigation lock denies `localhost`

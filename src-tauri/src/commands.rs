@@ -223,15 +223,15 @@ mod tests {
 
     #[test]
     fn accepts_http_and_https() {
-        assert!(validate_external_url("https://pwa.felyne.app/").is_ok());
+        assert!(validate_external_url("https://felyne.app/").is_ok());
         assert!(validate_external_url("http://example.com").is_ok());
     }
 
     #[test]
     fn accepts_urls_with_paths_queries_and_fragments() {
         for url in [
-            "https://pwa.felyne.app/?open=abc",
-            "https://pwa.felyne.app/invite/token",
+            "https://felyne.app/?open=abc",
+            "https://felyne.app/invite/token",
             "https://example.com/x?a=1#frag",
             "https://sub.example.com:8443/path?q=1",
         ] {

@@ -6,7 +6,13 @@ use url::Url;
 
 /// The remote app origin. All in-app navigation is locked to this origin
 /// (plus the localhost dev server while running a debug build).
-const REMOTE_ORIGIN: &str = "https://pwa.felyne.app";
+///
+/// This must be the PWA's canonical origin (`felyne.app`, per its own
+/// `<link rel="canonical">`): the Supabase `pgp-session` edge function only
+/// emits `Access-Control-Allow-Origin` for it. Loading the shell from the
+/// `pwa.` subdomain instead makes every session fetch fail CORS, which surfaces
+/// as "Could not establish a secure session. Please try again." on login.
+const REMOTE_ORIGIN: &str = "https://felyne.app";
 
 /// Parses a `FELYNE_APP_URL`-style value into a valid http(s) URL, or `None`.
 #[cfg(any(test, debug_assertions))]
@@ -157,18 +163,18 @@ mod tests {
 
     #[test]
     fn allows_remote_origin_and_its_paths() {
-        assert!(nav("https://pwa.felyne.app/"));
-        assert!(nav("https://pwa.felyne.app/?open=abc"));
-        assert!(nav("https://pwa.felyne.app/invite/token"));
+        assert!(nav("https://felyne.app/"));
+        assert!(nav("https://felyne.app/?open=abc"));
+        assert!(nav("https://felyne.app/invite/token"));
     }
 
     #[test]
     fn denies_foreign_origins() {
         assert!(!nav("https://evil.example.com/"));
-        assert!(!nav("https://felyne.app/"));
-        assert!(!nav("https://pwa.felyne.app.evil.com/"));
+        assert!(!nav("https://pwa.felyne.app/"));
+        assert!(!nav("https://felyne.app.evil.com/"));
         // http downgrade of the PWA origin is not the PWA origin.
-        assert!(!nav("http://pwa.felyne.app/"));
+        assert!(!nav("http://felyne.app/"));
     }
 
     #[test]
