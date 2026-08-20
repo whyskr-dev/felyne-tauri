@@ -87,7 +87,6 @@ jobs:
 
   sync-gitlab:
     needs: [publish]
-    if: ${{ secrets.GITLAB_TOKEN != '' }}
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -96,12 +95,14 @@ jobs:
     steps:
       - name: Fetch GitHub release assets
         id: assets
+        if: ${{ env.GITLAB_TOKEN != '' }}
         run: |
           ASSETS=$(gh release view "$TAG" --json assets \
             --jq '[.assets[] | {name: .name, url: .browser_download_url}]')
           echo "links=$ASSETS" >> "$GITHUB_OUTPUT"
           echo "$ASSETS" | jq -r '.[].name'
       - name: Create or update GitLab release
+        if: ${{ env.GITLAB_TOKEN != '' }}
         run: |
           BODY=$(jq -n \
             --arg tag "$TAG" \
