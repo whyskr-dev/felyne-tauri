@@ -91,7 +91,7 @@ jobs:
         id: assets
         if: ${{ env.GITLAB_TOKEN != '' }}
         run: |
-          ASSETS=$(gh release view "$TAG" --json assets \
+          ASSETS=$(gh api "repos/whyskr-dev/felyne-tauri/releases/tags/$TAG" \
             --jq '[.assets[] | {name: .name, url: .browser_download_url}]')
           echo "links=$ASSETS" >> "$GITHUB_OUTPUT"
           echo "$ASSETS" | jq -r '.[].name'
