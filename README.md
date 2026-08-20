@@ -146,9 +146,11 @@ Actions) on the GitHub mirror repo:
 | `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` | Codesigning the macOS app |
 | `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | macOS notarization |
 
-Windows and Linux artifacts are unsigned (acceptable for v1). macOS builds are
-signed + notarized only when the Apple secrets above are set; without them the
-builds still succeed unsigned.
+Windows and Linux artifacts are unsigned (acceptable for v1). macOS builds
+are ad-hoc signed (Gatekeeper will warn). To sign + notarize macOS builds
+later, add the five `APPLE_*` lines to the `publish` job's `env` in
+`.github/workflows/release.yml` (mirroring the existing signing lines) and
+fill the secrets above.
 
 ## Follow-ups
 
