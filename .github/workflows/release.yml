@@ -80,7 +80,47 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'felyne ${{ github.ref_name }}'
           releaseBody: 'See the assets to download below — install the `.dmg` (macOS), `.msi`/`.exe` (Windows), or `.deb`/`.AppImage` (Linux).'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           projectPath: src-tauri
           args: ${{ matrix.args }}
+
+  sync-gitlab:
+    needs: [publish]
+    if: ${{ secrets.GITLAB_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Fetch GitHub release assets
+        id: assets
+        run: |
+          ASSETS=$(gh release view "$TAG" --json assets \
+            --jq '[.assets[] | {name: .name, url: .browser_download_url}]')
+          echo "links=$ASSETS" >> "$GITHUB_OUTPUT"
+          echo "$ASSETS" | jq -r '.[].name'
+      - name: Create or update GitLab release
+        run: |
+          BODY=$(jq -n \
+            --arg tag "$TAG" \
+            --arg url "https://github.com/whyskr-dev/felyne-tauri/releases/tag/$TAG" \
+            --argjson links '${{ steps.assets.outputs.links }}' \
+            '{name: $tag, tag_name: $tag,
+              description: ("Built on GitHub Actions — see " + $url),
+              assets: {links: $links}}')
+          if curl -fsS -X POST \
+              -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$BODY" \
+              "https://gitlab.com/api/v4/projects/whyskr-club%2Ffelyne-tauri/releases" >/dev/null 2>&1; then
+            echo "Created GitLab release $TAG"
+          else
+            curl -fsS -X PUT \
+              -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$BODY" \
+              "https://gitlab.com/api/v4/projects/whyskr-club%2Ffelyne-tauri/releases/$TAG" >/dev/null
+            echo "Updated GitLab release $TAG"
+          fi
