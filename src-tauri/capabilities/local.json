@@ -3,5 +3,13 @@
   "identifier": "local",
   "description": "Permissions for the bundled splash page (local content).",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "allow-shell-platform",
+    "allow-shell-version",
+    "allow-shell-notify",
+    "allow-shell-open-external",
+    "allow-shell-notifications-permission",
+    "allow-shell-request-notification-permission"
+  ]
 }

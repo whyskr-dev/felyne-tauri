@@ -7,6 +7,12 @@
     "urls": ["https://pwa.felyne.app"]
   },
   "permissions": [
-    "core:default"
+    "core:default",
+    "allow-shell-platform",
+    "allow-shell-version",
+    "allow-shell-notify",
+    "allow-shell-open-external",
+    "allow-shell-notifications-permission",
+    "allow-shell-request-notification-permission"
   ]
 }
