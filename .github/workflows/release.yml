@@ -81,9 +81,24 @@ jobs:
           projectPath: src-tauri
           args: ${{ matrix.args }}
 
-  build-android:
+  # Job-level `if` cannot read the secrets context, so a tiny gate job checks
+  # which mobile secrets exist (step level CAN read secrets) and the mobile
+  # jobs skip themselves when their secrets aren't configured yet.
+  mobile-gate:
     needs: [publish]
-    if: ${{ secrets.ANDROID_FIREBASE_JSON != '' }}
+    runs-on: ubuntu-latest
+    outputs:
+      android: ${{ steps.check-android.outputs.run }}
+      ios: ${{ steps.check-ios.outputs.run }}
+    steps:
+      - id: check-android
+        run: echo "run=${{ secrets.ANDROID_FIREBASE_JSON != '' }}" >> "$GITHUB_OUTPUT"
+      - id: check-ios
+        run: echo "run=${{ secrets.IOS_MOBILE_PROVISION != '' }}" >> "$GITHUB_OUTPUT"
+
+  build-android:
+    needs: [publish, mobile-gate]
+    if: ${{ needs.mobile-gate.outputs.android == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -131,8 +146,8 @@ jobs:
           args: --apk --target universal
 
   build-ios:
-    needs: [publish]
-    if: ${{ secrets.IOS_MOBILE_PROVISION != '' }}
+    needs: [publish, mobile-gate]
+    if: ${{ needs.mobile-gate.outputs.ios == 'true' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -162,7 +177,7 @@ jobs:
           args: --target aarch64-apple-ios
 
   sync-gitlab:
-    needs: [publish, build-android, build-ios]
+    needs: [publish, mobile-gate, build-android, build-ios]
     # Run even when a mobile job was skipped for missing secrets: !failure()
     # treats skipped needed jobs as success.
     if: ${{ !failure() && !cancelled() }}
