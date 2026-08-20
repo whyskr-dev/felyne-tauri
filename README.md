@@ -30,9 +30,9 @@ releases that:
 
 | Capability | Status |
 | --- | --- |
-| macOS / Windows / Linux | done (v1), updater added in v2.0 |
-| iOS / Android sideload builds (`.ipa` / `.apk` from GitHub releases) | done (v2.0) |
-| Native push (APNs / FCM) — closed-app notifications on mobile | done (v2.0); needs Firebase + Apple signing setup |
+| macOS / Windows / Linux | done (v0.1), updater added in v0.2.0 |
+| iOS / Android sideload builds (`.ipa` / `.apk` from GitHub releases) | done (v0.2.0) |
+| Native push (APNs / FCM) — closed-app notifications on mobile | done (v0.2.0); needs Firebase + Apple signing setup |
 | Closed-app desktop notifications | out of scope (desktop notifies while running) |
 | Notification tap → conversation routing | iOS: deferred (plugin doesn't deliver iOS tap events yet); Android: event wired, backend needs to handle it |
 | Deep links / custom URL scheme | deferred |
@@ -156,8 +156,8 @@ npx @tauri-apps/cli ios build --target aarch64-apple-ios   # iOS (needs Xcode)
    ```bash
    git push gitlab main
    git push github main
-   git tag -a v2.0.0 -m "felyne v2.0.0"
-   git push github v2.0.0
+   git tag -a v0.3.0 -m "felyne v0.3.0"
+   git push github v0.3.0
    ```
 2. `release.yml` builds and uploads assets to the release.
 3. Sanity-check the `.dmg`, `.msi`/`.exe`, `.deb`/`.AppImage`, `.apk`, and
