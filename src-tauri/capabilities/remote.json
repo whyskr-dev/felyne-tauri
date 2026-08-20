@@ -8,11 +8,14 @@
   },
   "permissions": [
     "core:default",
+    "mobile-push:default",
     "allow-shell-platform",
     "allow-shell-version",
     "allow-shell-notify",
     "allow-shell-open-external",
     "allow-shell-notifications-permission",
-    "allow-shell-request-notification-permission"
+    "allow-shell-request-notification-permission",
+    "allow-shell-check-for-update",
+    "allow-shell-install-update"
   ]
 }

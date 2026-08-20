@@ -52,6 +52,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install Tauri CLI
+        run: npm ci
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -79,8 +81,91 @@ jobs:
           projectPath: src-tauri
           args: ${{ matrix.args }}
 
-  sync-gitlab:
+  build-android:
     needs: [publish]
+    if: ${{ secrets.ANDROID_FIREBASE_JSON != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Tauri CLI
+        run: npm ci
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+      - uses: android-actions/setup-android@v3
+      - uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r26d
+          link-to-sdk: true
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Android Rust targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+      - name: Setup Android signing
+        working-directory: src-tauri/gen/android
+        run: |
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > keystore.properties
+          echo "password=${{ secrets.ANDROID_KEY_PASSWORD }}" >> keystore.properties
+          base64 -d <<< "${{ secrets.ANDROID_KEY_BASE64 }}" > "$RUNNER_TEMP/keystore.jks"
+          echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
+      - name: Provide google-services.json (Firebase/FCM)
+        working-directory: src-tauri/gen/android/app
+        run: base64 -d <<< "${{ secrets.ANDROID_FIREBASE_JSON }}" > google-services.json
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        with:
+          projectPath: src-tauri
+          tagName: ${{ github.ref_name }}
+          releaseName: 'felyne ${{ github.ref_name }}'
+          releaseBody: 'Android APK (universal, 4 ABIs) built on GitHub Actions.'
+          releaseDraft: false
+          prerelease: false
+          uploadUpdaterJson: false
+          mobile: android
+          args: --apk --target universal
+
+  build-ios:
+    needs: [publish]
+    if: ${{ secrets.IOS_MOBILE_PROVISION != '' }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Tauri CLI
+        run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install iOS Rust target
+        run: rustup target add aarch64-apple-ios
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_MOBILE_PROVISION: ${{ secrets.IOS_MOBILE_PROVISION }}
+        with:
+          projectPath: src-tauri
+          tagName: ${{ github.ref_name }}
+          releaseName: 'felyne ${{ github.ref_name }}'
+          releaseBody: 'iOS .ipa (ad-hoc, arm64) built on GitHub Actions. Needs a device whose UDID is in the provisioning profile.'
+          releaseDraft: false
+          prerelease: false
+          uploadUpdaterJson: false
+          mobile: ios
+          args: --target aarch64-apple-ios
+
+  sync-gitlab:
+    needs: [publish, build-android, build-ios]
+    # Run even when a mobile job was skipped for missing secrets: !failure()
+    # treats skipped needed jobs as success.
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

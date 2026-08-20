@@ -1,0 +1,8 @@
+{
+  "identifier": "app.felyne",
+  "bundle": {
+    "android": {
+      "minSdkVersion": 24
+    }
+  }
+}

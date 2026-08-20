@@ -1,0 +1,12 @@
+{
+  "name": "felyne-tauri",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Native shell for the felyne PWA (desktop + mobile). No frontend lives here; the Tauri CLI is pinned so CI and the iOS Xcode pre-build script can invoke it.",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4"
+  }
+}

@@ -1,7 +1,85 @@
+use serde::Serialize;
 use tauri::plugin::PermissionState;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
+
+/// Update metadata surfaced to the web app / update notification. `url` is
+/// always a human-facing link (the GitHub release page) so non-updatable
+/// platforms (mobile) can still send the user somewhere to download.
+#[derive(Debug, Clone, Serialize)]
+pub struct ShellUpdate {
+    pub version: String,
+    pub notes: Option<String>,
+    pub url: String,
+}
+
+/// The desktop updater reads the same `latest.json` the release workflow
+/// publishes. Mobile has no in-place updater, so the shell fetches this file
+/// directly and compares versions to tell the user an update exists.
+#[cfg(not(desktop))]
+const UPDATE_ENDPOINT: &str =
+    "https://github.com/whyskr-dev/felyne-tauri/releases/latest/download/latest.json";
+const RELEASE_PAGE: &str = "https://github.com/whyskr-dev/felyne-tauri/releases/tag";
+
+/// True when `candidate` is a newer semver than the running shell.
+fn is_newer(candidate: &str) -> bool {
+    let Ok(current) = semver::Version::parse(env!("CARGO_PKG_VERSION")) else {
+        return false;
+    };
+    semver::Version::parse(candidate)
+        .map(|c| c > current)
+        .unwrap_or(false)
+}
+
+/// Check whether a newer shell version exists. Desktop consults the updater
+/// plugin (which also drives the actual install); mobile reads the same
+/// `latest.json` over HTTP and compares versions.
+pub async fn check_for_update(app: AppHandle) -> Result<Option<ShellUpdate>, String> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_updater::UpdaterExt;
+        let updater = app.updater().map_err(|e| e.to_string())?;
+        match updater.check().await.map_err(|e| e.to_string())? {
+            Some(update) => {
+                let version = update.version.to_string();
+                // Defense-in-depth: never surface a downgrade or garbage feed.
+                if !is_newer(&version) {
+                    return Ok(None);
+                }
+                let url = format!("{RELEASE_PAGE}/v{version}");
+                Ok(Some(ShellUpdate {
+                    notes: update.body,
+                    version,
+                    url,
+                }))
+            }
+            None => Ok(None),
+        }
+    }
+    #[cfg(not(desktop))]
+    {
+        let body = tauri::async_runtime::spawn_blocking(move || {
+            ureq::get(UPDATE_ENDPOINT)
+                .call()
+                .map_err(|e| e.to_string())?
+                .into_string()
+                .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+        let json: serde_json::Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+        let version = json.get("version").and_then(|v| v.as_str()).unwrap_or("");
+        if !is_newer(version) {
+            return Ok(None);
+        }
+        Ok(Some(ShellUpdate {
+            version: version.to_string(),
+            notes: json.get("notes").and_then(|n| n.as_str()).map(String::from),
+            url: format!("{RELEASE_PAGE}/v{version}"),
+        }))
+    }
+}
 
 #[tauri::command]
 pub fn shell_platform() -> String {
@@ -69,6 +147,42 @@ fn validate_external_url(url: &str) -> Result<url::Url, String> {
     Ok(parsed)
 }
 
+/// Does a newer shell release exist? Returns `None` when already current or
+/// when the check cannot be performed (offline, malformed feed). Mobile uses
+/// this to tell the user an update is available for manual download.
+#[tauri::command]
+pub async fn shell_check_for_update(app: AppHandle) -> Result<Option<ShellUpdate>, String> {
+    check_for_update(app).await
+}
+
+/// Install and restart into a pending update. Desktop-only: Tauri's updater
+/// cannot replace a mobile app in place, so mobile returns an error and the
+/// web app directs the user to the release page instead.
+#[tauri::command]
+pub async fn shell_install_update(app: AppHandle) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_updater::UpdaterExt;
+        let updater = app.updater().map_err(|e| e.to_string())?;
+        let update = updater
+            .check()
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "no update available".to_string())?;
+        update
+            .download_and_install(|_current, _total| {}, || {})
+            .await
+            .map_err(|e| e.to_string())?;
+        let _ = app.emit_to("main", "shell:update-installed", &update.version.to_string());
+        tauri::process::restart(&app.env());
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = app;
+        Err("mobile has no in-place updater; download the new build from the release page".into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -81,6 +195,8 @@ mod tests {
     /// so the bridge can't silently grow more powerful than the capability
     /// files intend.
     const SHELL_COMMANDS: &[&str] = &[
+        "shell_check_for_update",
+        "shell_install_update",
         "shell_notifications_permission",
         "shell_notify",
         "shell_open_external",
@@ -110,8 +226,11 @@ mod tests {
                 pending_command = true;
                 continue;
             }
-            if pending_command && trimmed.starts_with("pub fn ") {
+            if pending_command
+                && (trimmed.starts_with("pub fn ") || trimmed.starts_with("pub async fn "))
+            {
                 let name = trimmed
+                    .trim_start_matches("pub async fn ")
                     .trim_start_matches("pub fn ")
                     .split(['(', ' '])
                     .next()
@@ -142,6 +261,11 @@ mod tests {
     }
 
     /// Command names the injected bridge invokes via IPC.
+    ///
+    /// `plugin:`-prefixed invocations (e.g. `plugin:mobile-push|get_token`)
+    /// target third-party plugin commands directly and are excluded here —
+    /// they are governed by the plugins' own permission sets, not the shell
+    /// command surface.
     fn init_js_invocations() -> Vec<String> {
         let src = std::fs::read_to_string(repo_path("src/init.js")).expect("read init.js");
         let mut names = Vec::new();
@@ -150,7 +274,10 @@ mod tests {
         while let Some(idx) = rest.find(needle) {
             rest = &rest[idx + needle.len()..];
             if let Some(end) = rest.find('\'') {
-                names.push(rest[..end].to_string());
+                let name = &rest[..end];
+                if !name.starts_with("plugin:") {
+                    names.push(name.to_string());
+                }
             }
         }
         names.sort();
@@ -191,7 +318,10 @@ mod tests {
         let platform = shell_platform();
         assert_eq!(platform, crate::platform_name());
         assert!(
-            matches!(platform.as_str(), "macos" | "windows" | "linux" | "unknown"),
+            matches!(
+                platform.as_str(),
+                "macos" | "windows" | "linux" | "ios" | "android" | "unknown"
+            ),
             "unexpected platform: {platform}"
         );
     }
@@ -263,6 +393,27 @@ mod tests {
         ] {
             assert!(validate_external_url(url).is_err(), "should refuse {url:?}");
         }
+    }
+
+    // shell_check_for_update / shell_install_update hit the network and OS
+    // installers, so they are not exercised directly. The pure version gate
+    // below is tested, and the command-surface guards keep the bridge
+    // contract pinned.
+
+    #[test]
+    fn update_is_newer_compares_semver() {
+        let current = env!("CARGO_PKG_VERSION");
+        assert!(!is_newer(current), "current is not newer than itself");
+        assert!(!is_newer("0.0.1"));
+        assert!(!is_newer("garbage"));
+        // Parse the current version and prove a patch bump reads as newer.
+        let bump = semver::Version::parse(current)
+            .map(|mut v| {
+                v.patch += 1;
+                v.to_string()
+            })
+            .unwrap();
+        assert!(is_newer(&bump), "{bump} should be newer than {current}");
     }
 
     // ------------------------------------------------------------------

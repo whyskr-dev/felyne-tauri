@@ -1,6 +1,7 @@
 mod commands;
 
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
 
@@ -64,7 +65,21 @@ pub fn platform_name() -> &'static str {
     {
         "linux"
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    #[cfg(target_os = "ios")]
+    {
+        "ios"
+    }
+    #[cfg(target_os = "android")]
+    {
+        "android"
+    }
+    #[cfg(not(any(
+        target_os = "macos",
+        target_os = "windows",
+        target_os = "linux",
+        target_os = "ios",
+        target_os = "android"
+    )))]
     {
         "unknown"
     }
@@ -106,10 +121,23 @@ fn init_script() -> String {
         .replace("__FELYNE_APP_URL__", &app_url())
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_mobile_push::Builder::new()
+            // Chat-style app: content is already visible in-app, so suppress
+            // the banner/sound for foreground pushes (iOS). Background pushes
+            // are still shown natively by the OS. Android is unaffected.
+            .ios_foreground_presentation(
+                tauri_plugin_mobile_push::ForegroundPresentationOptions::silent(),
+            )
+            .build());
+
+    // Single-instance is desktop-only; it has no meaning on iOS/Android.
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    let builder = builder
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // Second launch: focus the existing window instead of starting a
             // duplicate process.
@@ -118,8 +146,17 @@ pub fn run() {
                 let _ = window.show();
                 let _ = window.set_focus();
             }
-        }))
+        }));
+
+    // Auto-updater is desktop-only (stores/APK sideloading own the mobile
+    // update path; mobile builds just tell the user one exists).
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+
+    builder
         .invoke_handler(tauri::generate_handler![
+            commands::shell_check_for_update,
+            commands::shell_install_update,
             commands::shell_platform,
             commands::shell_version,
             commands::shell_notify,
@@ -143,6 +180,27 @@ pub fn run() {
                 .initialization_script(init_script())
                 .build()?;
             window.show()?;
+
+            // Best-effort update check shortly after launch so the webview is
+            // up. On desktop an update is installable in place; on mobile we
+            // can only tell the user one exists. The web app can also trigger
+            // this on demand via the bridge.
+            let check_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(6));
+                if let Ok(Some(update)) = tauri::async_runtime::block_on(commands::check_for_update(
+                    check_handle.clone(),
+                )) {
+                    let _ = check_handle.emit_to("main", "shell:update-available", &update);
+                    let _ = check_handle
+                        .notification()
+                        .builder()
+                        .title("felyne update available")
+                        .body(format!("v{} is ready", update.version))
+                        .show();
+                }
+            });
+
             Ok(())
         })
         .run(tauri::generate_context!())
